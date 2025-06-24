@@ -14,29 +14,50 @@ public class CubeController : ControllerBase
     }
 
     [HttpGet("dashboard")]
-    public IActionResult GetDashboard()
+    public IActionResult GetDashboard(int year, int month)
     {
         string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
         string cube = _config.CubeName;
 
         var result = new
         {
-            byMonth = QueryCube(connStr, $@"
+            // 1. Số lượng incident theo service trong 1 năm và 1 tháng cụ thể ở các ngày (multi-line chart)
+            byServiceInMonthYear = QueryCube(connStr, $@"
                 SELECT 
-                    {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                    FILTER(
-                        [Dim Date].[Full Date].MEMBERS,
-                        NOT ISEMPTY([Measures].[Fact Incident Count])
+                    NON EMPTY 
+                        {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                    NON EMPTY 
+                        ([Dim Business Service].[Business Service Name].MEMBERS *
+                        [Dim Date].[Day].MEMBERS) ON ROWS
+                FROM [{cube}]
+                WHERE (
+                    [Dim Date].[Year].&[{year}], 
+                    [Dim Date].[Month].&[{month}])
+            "),
+
+            // 2. Incident theo từng service trong 12 tháng của 1 năm cụ thể (multi-line chart)
+            byServiceInYear = QueryCube(connStr, $@"
+                SELECT 
+                    [Measures].[Fact Incident Count] ON COLUMNS,
+                    NON EMPTY (
+                        [Dim Business Service].[Business Service Name].MEMBERS *
+                        [Dim Date].[Month].MEMBERS
                     ) ON ROWS
-                FROM [{cube}]")
+                FROM [{cube}]
+                WHERE ([Dim Date].[Year].&[{year}])
+            ")
+
+            // 3. Tổng số lượng incident theo ca trong các service (bar chart)
+
+            
         };
 
         return Ok(result);
     }
 
-    private List<object> QueryCube(string connStr, string mdx)
+    private List<Dictionary<string, object?>> QueryCube(string connStr, string mdx)
     {
-        var data = new List<object>();
+        var data = new List<Dictionary<string, object?>>();
 
         using (var conn = new AdomdConnection(connStr))
         {
@@ -46,18 +67,21 @@ public class CubeController : ControllerBase
                 var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
-                    var label = reader.IsDBNull(0) ? null : reader[0].ToString();
-                    var value = reader.IsDBNull(1) ? null : reader[1];
+                    var row = new Dictionary<string, object?>();
 
-                    data.Add(new
+                    for (int i = 0; i < reader.FieldCount; i++)
                     {
-                        Label = label,
-                        Value = value
-                    });
+                        string columnName = reader.GetName(i);
+                        object? value = reader.IsDBNull(i) ? null : reader[i];
+                        row[columnName] = value;
+                    }
+
+                    data.Add(row);
                 }
             }
         }
 
         return data;
     }
+
 }
