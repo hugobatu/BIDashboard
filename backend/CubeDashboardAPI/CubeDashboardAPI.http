@@ -1,0 +1,6 @@
+@CubeDashboardAPI_HostAddress = http://localhost:5007
+
+GET {{CubeDashboardAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
