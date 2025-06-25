@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons-vue": "^7.0.1",
     "@antv/g2plot": "^2.4.33",
     "@tailwindcss/vite": "^4.1.10",
     "ant-design-vue": "^4.2.6",
