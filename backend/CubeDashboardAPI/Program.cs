@@ -11,14 +11,22 @@ DotNetEnv.Env.Load();
 var ssasDataSource = Environment.GetEnvironmentVariable("SSAS_DATASOURCE");
 var ssasCatalog = Environment.GetEnvironmentVariable("SSAS_CATALOG");
 var ssasCubeName = Environment.GetEnvironmentVariable("SSAS_CUBE_NAME");
+var sqlConnStr = Environment.GetEnvironmentVariable("SQLSERVER_CONNECTION_STRING");
 
-// Truyền vào DI (Dependency Injection)
+// Cube Connection
 builder.Services.AddSingleton(new CubeConfig
 {
     DataSource = ssasDataSource!,
     Catalog = ssasCatalog!,
     CubeName = ssasCubeName!
 });
+
+// SQL Server Connection
+builder.Services.AddSingleton(new SqlDbConfig
+{
+    ConnectionString = sqlConnStr!
+});
+builder.Services.AddSingleton<SqlQueryService>();
 
 builder.Services.AddControllers();
 
