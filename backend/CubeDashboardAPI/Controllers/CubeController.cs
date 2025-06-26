@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using System.Net.Http.Headers;
 using System.Xml.XPath;
+using Azure.Core;
 
 [ApiController]
 [Route("")]
@@ -275,6 +276,104 @@ public class CubeController : ControllerBase
         var headers = new List<string> { $"Service", $"Day", $"Total Incident"};
         var result = QueryCube(connStr, mdx, headers);
         
+        return Ok(result);
+    }
+    // 6.1 Tổng số lượng Incident theo mức độ ưu tiên của từng loại service (filter theo năm)
+    [HttpGet("incidentByServicePriorityYear")]
+    public IActionResult GetIncidentByServicePriorityYear(int year)
+    {
+        string cube = _config.CubeName;
+        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        string mdx = $@"
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY (
+                    [Dim Business Service].[Business Service Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS
+                ) ON ROWS
+            FROM [BI Do An]
+            WHERE (
+                [Dim Date].[Year].&[{year}]
+            )
+        ";
+
+        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var result = QueryCube(connStr, mdx, headers);
+
+        return Ok(result);
+    }
+    // 6.2 Tổng số lượng Incident theo mức độ ưu tiên của từng loại service (filter theo tháng + năm)
+    [HttpGet("incidentByServicePriorityMonthYear")]
+    public IActionResult GetIncidentByServicePriorityMonthYear(int year, int month)
+    {
+        string cube = _config.CubeName;
+        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        string mdx = $@"
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY (
+                    [Dim Business Service].[Business Service Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS
+                ) ON ROWS
+            FROM [BI Do An]
+            WHERE (
+                [Dim Date].[Year].&[{year}],
+                [Dim Date].[Month].&[{month}]
+            )
+        ";
+
+        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var result = QueryCube(connStr, mdx, headers);
+
+        return Ok(result);
+    }
+    // 7.1 Tổng số lượng Incident theo mức độ ưu tiên của từng loại ca (filter theo tháng)
+    [HttpGet("incidentByShiftPriorityYear")]
+    public IActionResult GetIncidentByShiftPriorityYear(int year)
+    {
+        string cube = _config.CubeName;
+        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        string mdx = $@"
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY (
+                    [Dim Shift].[Shift Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS
+                ) ON ROWS
+            FROM [BI Do An]
+            WHERE (
+                [Dim Date].[Year].&[{year}]
+            )
+        ";
+
+        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var result = QueryCube(connStr, mdx, headers);
+
+        return Ok(result);
+    }
+    // 7.1 Tổng số lượng Incident theo mức độ ưu tiên của từng loại ca (filter theo tháng)
+    [HttpGet("incidentByShiftPriorityMonthYear")]
+    public IActionResult GetIncidentByShiftPriorityMonthYear(int year, int month)
+    {
+        string cube = _config.CubeName;
+        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        string mdx = $@"
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY (
+                    [Dim Shift].[Shift Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS
+                ) ON ROWS
+            FROM [BI Do An]
+            WHERE (
+                [Dim Date].[Year].&[{year}],
+                [Dim Date].[Month].&[{month}]
+            )
+        ";
+        
+        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var result = QueryCube(connStr, mdx, headers);
+
         return Ok(result);
     }
     //  MDX query
