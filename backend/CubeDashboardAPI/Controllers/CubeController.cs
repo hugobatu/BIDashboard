@@ -55,7 +55,7 @@ public class CubeController : ControllerBase
             )
         ";
 
-        var headers = new List<string> { $"Incident Count (latest month {month} in {year})" };
+        var headers = new List<string> { $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         var response = new
@@ -100,8 +100,8 @@ public class CubeController : ControllerBase
                 [Dim Date].[Day].&[{day}]
             )
         ";
-
-        var headers = new List<string> { $"Incident Count (latest day {day} in month {month} year {year})" };
+        
+        var headers = new List<string> { $"TotalIncident)" };
         var result = QueryCube(connStr, mdx, headers);
 
         var response = new
@@ -128,7 +128,7 @@ public class CubeController : ControllerBase
                 [Dim Date].[Year].&[{year}]
             )
         ";
-        var headers = new List<string> { $"Total Incident in year {year}" };
+        var headers = new List<string> { $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
@@ -140,7 +140,7 @@ public class CubeController : ControllerBase
         string cube = _config.CubeName;
         string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
         string mdx = $@"
-            SELECT
+            SELECTt
                 {{[Measures].[Fact Incident Count]}} ON COLUMNS
             FROM [{cube}]
             WHERE (
@@ -148,7 +148,7 @@ public class CubeController : ControllerBase
                 [Dim Date].[Month].&[{month}]
             )
         ";
-        var headers = new List<string> { $"Total Incident in month {month} year {year}" };
+        var headers = new List<string> { $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
@@ -167,7 +167,7 @@ public class CubeController : ControllerBase
                     {{[Dim Priority].[Priority Code].&[1C]}},
                     [Dim Date].[Year].&[{year}]
             )";
-        var headers = new List<string> { $"Total Incident in year {year}" };
+        var headers = new List<string> { $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
@@ -187,7 +187,7 @@ public class CubeController : ControllerBase
                     [Dim Date].[Year].&[{year}],
                     [Dim Date].[Month].&[{month}]
             )";
-        var headers = new List<string> { $"Total Incident in month {month} year {year}" };
+        var headers = new List<string> { $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
         
         return Ok(result);
@@ -201,12 +201,15 @@ public class CubeController : ControllerBase
         string mdx = $@"
             SELECT
                 {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                [Dim Business Service].[Business Service Name].[Business Service Name] ON ROWS
+                NON EMPTY(
+                    [Dim Business Service].[Business Service Name].MEMBERS * 
+                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
+                ) ON ROWS
             FROM [BI Do An]
             WHERE (
                 [Dim Date].[Year].&[{year}]
             )";
-        var headers = new List<string> { $"Service", $"Total Incident in year {year}"};
+        var headers = new List<string> { $"Service", $"AssignmentGroup", $"TotalIncident"};
         var result = QueryCube(connStr, mdx, headers);
         
         return Ok(result);
@@ -220,15 +223,17 @@ public class CubeController : ControllerBase
         string mdx = $@"
             SELECT
                 {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                [Dim Business Service].[Business Service Name].[Business Service Name] ON ROWS
+                NON EMPTY(
+                    [Dim Business Service].[Business Service Name].MEMBERS * 
+                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
+                ) ON ROWS
             FROM [BI Do An]
             WHERE (
                 [Dim Date].[Year].&[{year}],
                 [Dim Date].[Month].&[{month}]
             )";
-        var headers = new List<string> { $"Service", $"Total Incident in year {year}"};
+        var headers = new List<string> { $"Service", $"AssignmentGroup", $"TotalIncident"};
         var result = QueryCube(connStr, mdx, headers);
-        
         return Ok(result);
     }
     // 5.1 Số lượng incident của từng service theo từng tháng trong 1 năm (filter theo theo năm)
@@ -243,13 +248,14 @@ public class CubeController : ControllerBase
                 NON EMPTY 
                 (
                     [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Date].[Month].MEMBERS
+                    [Dim Date].[Day].MEMBERS *
+                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
             WHERE (
-            [Dim Date].[Year].&[{year}]
+                [Dim Date].[Year].&[{year}]
             )";
-        var headers = new List<string> { $"Service", $"Month", $"Total Incident"};
+        var headers = new List<string> { $"Service", $"Month", $"AssignmentGroup", $"TotalIncident"};
         var result = QueryCube(connStr, mdx, headers);
         
         return Ok(result);
@@ -261,19 +267,20 @@ public class CubeController : ControllerBase
         string cube = _config.CubeName;
         string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
         string mdx = $@"
-            SELECT 
+            SELECT
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY 
                 (
                     [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Date].[Day].MEMBERS
+                    [Dim Date].[Day].MEMBERS *
+                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
             WHERE (
                 [Dim Date].[Year].&[{year}], 
                 [Dim Date].[Month].&[{month}]
             )";
-        var headers = new List<string> { $"Service", $"Day", $"Total Incident"};
+        var headers = new List<string> { $"Service", $"Day", $"AssignmentGroup",$"Total Incident"};
         var result = QueryCube(connStr, mdx, headers);
         
         return Ok(result);
@@ -289,7 +296,8 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS
+                    [Dim Priority].[Priority Code].MEMBERS *
+                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
             WHERE (
@@ -297,7 +305,7 @@ public class CubeController : ControllerBase
             )
         ";
 
-        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
@@ -322,7 +330,7 @@ public class CubeController : ControllerBase
             )
         ";
 
-        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
@@ -338,7 +346,8 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS
+                    [Dim Priority].[Priority Code].MEMBERS *
+                	[Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
             WHERE (
@@ -346,7 +355,7 @@ public class CubeController : ControllerBase
             )
         ";
 
-        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
@@ -362,7 +371,8 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS
+                    [Dim Priority].[Priority Code].MEMBERS *
+                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
             WHERE (
@@ -371,7 +381,7 @@ public class CubeController : ControllerBase
             )
         ";
         
-        var headers = new List<string> { $"Service", $"Priority", $"Total Incident" };
+        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
         var result = QueryCube(connStr, mdx, headers);
 
         return Ok(result);
