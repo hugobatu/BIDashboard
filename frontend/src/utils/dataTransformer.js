@@ -11,11 +11,11 @@ export function transformApiDataToCharts(apiData) {
 
   // --- Treemap Data ---
   const treemapData = groupDistributionData
-    .filter(item => item && item.AssignmentGroup)
-    .map(item => ({
-      name: item.AssignmentGroup,
-      value: item.Count
-    }));
+  .filter(item => item && item.AssignmentGroup)
+  .map(item => ({
+    name: item.AssignmentGroup,
+    value: item.Count
+  }));
 
   // --- Priority Pie Chart Data ---
   const priorityCount = cleanedServiceData.reduce((acc, item) => {

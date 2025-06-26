@@ -13,7 +13,7 @@ const props = defineProps({
   color: [Array, Function],
   totalValue: {
     type: Number,
-    required: true,
+    required: false,
   }
 });
 
@@ -37,10 +37,8 @@ const renderChart = () => {
         
         label: {
             formatter: (d) => {
-                const percentage = props.totalValue > 0 ? (d.value / props.totalValue * 100).toFixed(2) : 0;
-
-                if (d.value / props.totalValue > 0.05) {
-                    return `${d.name}\n${percentage}%`;
+                if (d.value) {
+                    return `${d.name}\n${d.value}`;
                 }
                 return '';
             },
@@ -63,7 +61,7 @@ onMounted(() => {
   renderChart();
 });
 
-watch(() => [props.data, props.totalValue], () => {
+watch(() => props.data, () => {
   renderChart();
 }, { deep: true });
 
