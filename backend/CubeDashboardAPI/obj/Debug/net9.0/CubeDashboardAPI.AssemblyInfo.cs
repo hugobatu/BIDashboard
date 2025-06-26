@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CubeDashboardAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0ac9de654933f50ca9f2c33f4c32b41ff734aebb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8756eb37551f1298f5a3ff7f117f35d3b4e3d1d1")]
 [assembly: System.Reflection.AssemblyProductAttribute("CubeDashboardAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CubeDashboardAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
