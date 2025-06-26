@@ -4,10 +4,10 @@
  * @returns {object} - Đối tượng chứa dữ liệu đã xử lý cho các biểu đồ.
  */
 export function transformApiDataToCharts(apiData) {
-  const { servicePriorityData, shiftPriorityData, trendByDaeoData, groupDistributionData = [] } = apiData;
+  const { servicePriorityData, shiftDistributionData, trendByDaeoData, groupDistributionData = [] } = apiData;
 
   const cleanedServiceData = servicePriorityData.filter(item => item && item.Service && item.Priority && item.AssignmentGroup);
-  const cleanedShiftData = shiftPriorityData.filter(item => item && item.Shift && item.Priority && item.AssignmentGroup);
+  const cleanedShiftData = shiftDistributionData.filter(item => item && item.shift && item.count);
 
   // --- Treemap Data ---
   const treemapData = groupDistributionData
@@ -39,11 +39,10 @@ export function transformApiDataToCharts(apiData) {
     return sortedServices.indexOf(a.service) - sortedServices.indexOf(b.service);
   });
   
-  // --- Shift-Priority Bar Chart Data ---
-  const finalShiftPriorityData = cleanedShiftData.map(item => ({
-    shift: item.Shift,
-    priority: item.Priority,
-    count: item.Count,
+  // --- Shift-Priority Bar Chart Data (Cập nhật) ---
+  const finalShiftData = cleanedShiftData.map(item => ({
+    type: item.shift,
+    total_sales: item.count,
   }));
   
   // --- DAEO Trend Line Chart Data ---
@@ -60,7 +59,7 @@ export function transformApiDataToCharts(apiData) {
     priorityDistribution: { data: priorityDistributionData },
     treemap: { data: treemapData },
     servicePriority: { data: finalServicePriorityData },
-    shiftPriority: { data: finalShiftPriorityData },
+    shiftPriority: { data: finalShiftData },
     trendByDaeo: { data: trendByDaeo },
   };
 }
