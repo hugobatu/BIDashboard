@@ -11,7 +11,7 @@ export const SERVICES = [
 export const PRIORITIES = [
   { id: 'p1', name: 'Critical' },
   { id: 'p2', name: 'High' },
-  { id: 'p3', name: 'Medium' },
+  { id: 'p3', name: 'Moderate' },
   { id: 'p4', name: 'Low' },
 ];
 

@@ -6,7 +6,7 @@ public class SqlQueryService
 {
     private readonly string _connStr;
 
-    public SqlQueryService(SqlDbConfig config) // ✅ Dependency có thể inject được
+    public SqlQueryService(SqlDbConfig config)
     {
         _connStr = config.ConnectionString;
     }
