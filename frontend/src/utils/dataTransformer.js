@@ -4,17 +4,18 @@
  * @returns {object} - Đối tượng chứa dữ liệu đã xử lý cho các biểu đồ.
  */
 export function transformApiDataToCharts(apiData) {
-  const { servicePriorityData = [], shiftPriorityData = [], trendByDaeoData = [] } = apiData;
+  const { servicePriorityData, shiftPriorityData, trendByDaeoData, groupDistributionData = [] } = apiData;
 
   const cleanedServiceData = servicePriorityData.filter(item => item && item.Service && item.Priority && item.AssignmentGroup);
   const cleanedShiftData = shiftPriorityData.filter(item => item && item.Shift && item.Priority && item.AssignmentGroup);
 
   // --- Treemap Data ---
-  const treemapCount = cleanedServiceData.reduce((acc, item) => {
-    acc[item.AssignmentGroup] = (acc[item.AssignmentGroup] || 0) + item.Count;
-    return acc;
-  }, {});
-  const treemapData = Object.entries(treemapCount).map(([name, value]) => ({ name, value }));
+  const treemapData = groupDistributionData
+    .filter(item => item && item.AssignmentGroup)
+    .map(item => ({
+      name: item.AssignmentGroup,
+      value: item.Count
+    }));
 
   // --- Priority Pie Chart Data ---
   const priorityCount = cleanedServiceData.reduce((acc, item) => {

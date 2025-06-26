@@ -15,23 +15,24 @@ const apiClient = axios.create({
 export async function fetchDashboardData(filters) {
   const { mode, date, groups } = filters;
   
-  const params = {
+  const paramsWithGroup = {
     year: date.year(),
     ...(mode === 'month' && { month: date.month() + 1 }), 
     assignmentGroups: groups,
   };
-
-  const trendParams = {
+  
+  const paramsWithoutGroup = {
     year: date.year(),
     ...(mode === 'month' && { month: date.month() + 1 }),
   };
 
   try {
-    const [kpisRes, servicePriorityRes, shiftPriorityRes, trendByDaeoRes] = await Promise.all([
-      apiClient.get('/kpis', { params }),
-      apiClient.get('/service-priority-distribution', { params }),
-      apiClient.get('/shift-priority-distribution', { params }),
-      apiClient.get('/trend-by-daeo-group', { params: trendParams }),
+    const [kpisRes, servicePriorityRes, shiftPriorityRes, trendByDaeoRes, groupDistributionRes] = await Promise.all([
+      apiClient.get('/kpis', { params: paramsWithGroup }),
+      apiClient.get('/service-priority-distribution', { params: paramsWithGroup }),
+      apiClient.get('/shift-priority-distribution', { params: paramsWithGroup }),
+      apiClient.get('/trend-by-daeo-group', { params: paramsWithoutGroup }),
+      apiClient.get('/assignment-group-distribution', { params: paramsWithoutGroup }),
     ]);
 
     return {
@@ -39,6 +40,7 @@ export async function fetchDashboardData(filters) {
       servicePriorityData: servicePriorityRes.data,
       shiftPriorityData: shiftPriorityRes.data,
       trendByDaeoData: trendByDaeoRes.data,
+      groupDistributionData: groupDistributionRes.data,
     };
   } catch (error) {
     console.error("Lỗi khi gọi API backend:", error);

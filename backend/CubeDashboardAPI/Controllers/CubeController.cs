@@ -16,7 +16,7 @@ public class CubeController : ControllerBase
     }
 
     [HttpGet("kpis")]
-    public IActionResult GetKpis([FromQuery] int year, [FromQuery] int? month, [FromQuery] List<string>? assignmentGroups)
+    public IActionResult GetKpis([FromQuery] int year, [FromQuery] int? month, [FromQuery(Name = "assignmentGroups[]")] List<string>? assignmentGroups)
     {
         string cube = _config.CubeName;
 
@@ -24,7 +24,7 @@ public class CubeController : ControllerBase
             ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
             : $"[Dim Date].[Year].&[{year}]";
 
-        string groupFilter = BuildGroupFilter(assignmentGroups);
+        string groupSlicer = BuildSlicerFilter(assignmentGroups);
 
         string mdx = $@"
             WITH
@@ -32,12 +32,9 @@ public class CubeController : ControllerBase
                 MEMBER [Measures].[High Priority Incidents] AS 
                     SUM({{ [Dim Priority].[Priority Code].&[1C], [Dim Priority].[Priority Code].&[2H] }}, [Measures].[Fact Incident Count])
             SELECT
-                {{
-                    [Measures].[Total Incidents],
-                    [Measures].[High Priority Incidents]
-                }} ON COLUMNS
+                {{ [Measures].[Total Incidents], [Measures].[High Priority Incidents] }} ON COLUMNS
             FROM [{cube}]
-            WHERE ({dateFilter}{groupFilter})";
+            WHERE ({dateFilter}{groupSlicer})";
 
         var kpiResult = QueryKpiCube(mdx);
         var latestResult = GetLatestIncidentValue(year, month, assignmentGroups);
@@ -54,10 +51,13 @@ public class CubeController : ControllerBase
     }
 
     [HttpGet("service-priority-distribution")]
-    public IActionResult GetServicePriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery] List<string>? assignmentGroups)
+    public IActionResult GetServicePriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery(Name = "assignmentGroups[]")] List<string>? assignmentGroups)
     {
-        string dateFilter = month.HasValue ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])" : $"[Dim Date].[Year].&[{year}]";
-        string groupFilter = BuildGroupFilter(assignmentGroups);
+        string dateFilter = month.HasValue
+            ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
+            : $"[Dim Date].[Year].&[{year}]";
+
+        string groupMembers = BuildGroupMembers(assignmentGroups);
 
         string mdx = $@"
             SELECT 
@@ -65,12 +65,56 @@ public class CubeController : ControllerBase
                 NON EMPTY (
                     [Dim Business Service].[Business Service Name].MEMBERS *
                     [Dim Priority].[Priority Name].MEMBERS *
-                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
+                    {groupMembers} 
                 ) ON ROWS
             FROM [{_config.CubeName}]
-            WHERE ({dateFilter}{groupFilter})";
+            WHERE ({dateFilter})";
 
         var headers = new List<string> { "Service", "Priority", "AssignmentGroup", "Count" };
+        var result = QueryCube(mdx, headers);
+        return Ok(result);
+    }
+
+    [HttpGet("shift-priority-distribution")]
+    public IActionResult GetShiftPriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery(Name = "assignmentGroups[]")] List<string>? assignmentGroups)
+    {
+        string dateFilter = month.HasValue
+            ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
+            : $"[Dim Date].[Year].&[{year}]";
+
+        string groupMembers = BuildGroupMembers(assignmentGroups);
+
+        string mdx = $@"
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY (
+                    [Dim Shift].[Shift Name].MEMBERS *
+                    [Dim Priority].[Priority Name].MEMBERS *
+                    {groupMembers}
+                ) ON ROWS
+            FROM [{_config.CubeName}]
+            WHERE ({dateFilter})";
+
+        var headers = new List<string> { "Shift", "Priority", "AssignmentGroup", "Count" };
+        var result = QueryCube(mdx, headers);
+        return Ok(result);
+    }
+
+    [HttpGet("assignment-group-distribution")]
+    public IActionResult GetAssignmentGroupDistribution([FromQuery] int year, [FromQuery] int? month)
+    {
+        string dateFilter = month.HasValue
+            ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
+            : $"[Dim Date].[Year].&[{year}]";
+
+        string mdx = $@"
+        SELECT 
+            NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+            NON EMPTY [Dim Assignment Group].[Assignment Group Name].MEMBERS ON ROWS
+        FROM [{_config.CubeName}]
+        WHERE ({dateFilter})";
+
+        var headers = new List<string> { "AssignmentGroup", "Count" };
         var result = QueryCube(mdx, headers);
         return Ok(result);
     }
@@ -84,59 +128,35 @@ public class CubeController : ControllerBase
             ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
             : $"[Dim Date].[Year].&[{year}]";
 
-        string[] daeoGroups = { "DAEO" };
-
+        string[] daeoGroups = { "DAEO", "DAEO - Data Engineer", "DAEO - Data Analyst", "DAEO - BI Developer" };
         var daeoMembers = string.Join(", ", daeoGroups.Select(g => $"[Dim Assignment Group].[Assignment Group Name].&[{g}]"));
 
         string mdx = $@"
-        WITH 
-            MEMBER [Dim Assignment Group].[Assignment Group Name].[DAEO] AS 
-                SUM( {{ {daeoMembers} }} )
-            MEMBER [Dim Assignment Group].[Assignment Group Name].[NON - DAEO] AS 
-                ([Dim Assignment Group].[Assignment Group Name].[All] - [Dim Assignment Group].[Assignment Group Name].[DAEO])
-        SELECT 
-            NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-            NON EMPTY (
-                {{ 
-                    [Dim Assignment Group].[Assignment Group Name].[DAEO], 
-                    [Dim Assignment Group].[Assignment Group Name].[NON - DAEO] 
-                }} *
-                {dateDimension}.MEMBERS
-            ) ON ROWS
-        FROM [{cube}]
-        WHERE ({dateFilter})";
+            WITH 
+                MEMBER [Dim Assignment Group].[Assignment Group Name].[DAEO] AS 
+                    SUM( {{ {daeoMembers} }} )
+                MEMBER [Dim Assignment Group].[Assignment Group Name].[NON - DAEO] AS 
+                    ([Dim Assignment Group].[Assignment Group Name].[All] - [Dim Assignment Group].[Assignment Group Name].[DAEO])
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY (
+                    {{ 
+                        [Dim Assignment Group].[Assignment Group Name].[DAEO], 
+                        [Dim Assignment Group].[Assignment Group Name].[NON - DAEO] 
+                    }} *
+                    {dateDimension}.MEMBERS
+                ) ON ROWS
+            FROM [{cube}]
+            WHERE ({dateFilter})";
 
         var headers = new List<string> { "AssignmentGroup", "Time", "Count" };
         var result = QueryCube(mdx, headers);
         return Ok(result);
     }
 
-    [HttpGet("shift-priority-distribution")]
-    public IActionResult GetShiftPriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery] List<string>? assignmentGroups)
-    {
-        string dateFilter = month.HasValue ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])" : $"[Dim Date].[Year].&[{year}]";
-        string groupFilter = BuildGroupFilter(assignmentGroups);
-
-        string mdx = $@"
-            SELECT 
-                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY (
-                    [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Name].MEMBERS *
-                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
-                ) ON ROWS
-            FROM [{_config.CubeName}]
-            WHERE ({dateFilter}{groupFilter})";
-
-        var headers = new List<string> { "Shift", "Priority", "AssignmentGroup", "Count" };
-        var result = QueryCube(mdx, headers);
-        return Ok(result);
-    }
-
     private (int latestValue, string latestTitle) GetLatestIncidentValue(int year, int? month, List<string>? assignmentGroups)
     {
-        string groupFilterMdx = BuildGroupFilter(assignmentGroups);
-        string mdx;
+        string groupSlicer = BuildSlicerFilter(assignmentGroups);
         string dateFilter;
         string latestTitle;
 
@@ -144,49 +164,61 @@ public class CubeController : ControllerBase
         {
             string sql = $@"
                 SELECT MAX(D.Day)
-                FROM [dw].[FactIncident] F
-                JOIN [dw].[DimDate] D ON F.DateKey = D.DateKey
+                FROM [dw].[FactIncident] F JOIN [dw].[DimDate] D ON F.DateKey = D.DateKey
                 WHERE D.Year = {year} AND D.Month = {month.Value}";
-
             var latestDayResult = _sqlService.QueryScalar(sql);
             int latestDay = (latestDayResult != null && latestDayResult != DBNull.Value) ? Convert.ToInt32(latestDayResult) : 0;
-
-            if (latestDay == 0) return (0, $"Incident Mới (Ngày)");
+            if (latestDay == 0) return (0, "Số Incident Mới (Ngày)");
 
             dateFilter = $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}], [Dim Date].[Day].&[{latestDay}])";
-            latestTitle = $"Incident Mới (Ngày {latestDay})";
+            latestTitle = $"Số Incident Mới (Ngày {latestDay})";
         }
         else
         {
             string sql = $@"
                 SELECT MAX(D.Month)
-                FROM [dw].[FactIncident] F
-                JOIN [dw].[DimDate] D ON F.DateKey = D.DateKey
+                FROM [dw].[FactIncident] F JOIN [dw].[DimDate] D ON F.DateKey = D.DateKey
                 WHERE D.Year = {year}";
-
             var latestMonthResult = _sqlService.QueryScalar(sql);
             int latestMonth = (latestMonthResult != null && latestMonthResult != DBNull.Value) ? Convert.ToInt32(latestMonthResult) : 0;
-
-            if (latestMonth == 0) return (0, $"Incident Mới (Tháng)");
+            if (latestMonth == 0) return (0, "Số Incident Mới (Tháng)");
 
             dateFilter = $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{latestMonth}])";
-            latestTitle = $"Incident Mới (Tháng {latestMonth})";
+            latestTitle = $"Số Incident Mới (Tháng {latestMonth})";
         }
 
-        mdx = $@"
+        string mdx = $@"
             SELECT {{[Measures].[Fact Incident Count]}} ON COLUMNS
             FROM [{_config.CubeName}]
-            WHERE ({dateFilter}{groupFilterMdx})";
+            WHERE ({dateFilter}{groupSlicer})";
 
         var resultDict = QueryKpiCube(mdx);
         return (resultDict.GetValueOrDefault("[Measures].[Fact Incident Count]", 0), latestTitle);
     }
 
-    private string BuildGroupFilter(List<string>? groups)
+    private string BuildSlicerFilter(List<string>? groups)
     {
         if (groups == null || !groups.Any()) return "";
         var sb = new StringBuilder();
         sb.Append(", {");
+        for (int i = 0; i < groups.Count; i++)
+        {
+            sb.Append($"[Dim Assignment Group].[Assignment Group Name].&[{groups[i]}]");
+            if (i < groups.Count - 1) sb.Append(", ");
+        }
+        sb.Append("}");
+        return sb.ToString();
+    }
+
+    private string BuildGroupMembers(List<string>? groups)
+    {
+        if (groups == null || !groups.Any())
+        {
+            return "[Dim Assignment Group].[Assignment Group Name].MEMBERS";
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("{");
         for (int i = 0; i < groups.Count; i++)
         {
             sb.Append($"[Dim Assignment Group].[Assignment Group Name].&[{groups[i]}]");
