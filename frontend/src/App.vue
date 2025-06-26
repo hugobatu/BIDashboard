@@ -55,13 +55,11 @@
           <a-row :gutter="[24, 24]" style="margin-top: 24px;">
             <a-col :xs="24" :lg="12"><a-card title="Phân bổ Incident theo Phòng ban" :bordered="false"><AntTreemapChart :data="state.charts.treemap.data" color-field="name" value-field="value" :color="groupColors" :total-value="state.kpi.total" /></a-card></a-col>
             
-            <!-- THAY ĐỔI COMPONENT Ở ĐÂY -->
             <a-col :xs="24" :lg="12">
               <a-card title="Tổng số Incident theo Ca" :bordered="false">
                 <AntDrillBarChart :data="state.charts.shiftPriority.data" :filters="filters" />
               </a-card>
             </a-col>
-            <!-- KẾT THÚC THAY ĐỔI -->
 
           </a-row>
         </a-spin>
