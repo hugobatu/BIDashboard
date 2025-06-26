@@ -54,7 +54,15 @@
 
           <a-row :gutter="[24, 24]" style="margin-top: 24px;">
             <a-col :xs="24" :lg="12"><a-card title="Phân bổ Incident theo Phòng ban" :bordered="false"><AntTreemapChart :data="state.charts.treemap.data" color-field="name" value-field="value" :color="groupColors" :total-value="state.kpi.total" /></a-card></a-col>
-            <a-col :xs="24" :lg="12"><a-card title="Tổng số Incident theo Mức độ Ưu tiên trong các Ca" :bordered="false"><AntGroupedBarChart :data="state.charts.shiftPriority.data" x-field="shift" y-field="count" group-field="priority" :color="getBarPriorityColor" /></a-card></a-col>
+            
+            <!-- THAY ĐỔI COMPONENT Ở ĐÂY -->
+            <a-col :xs="24" :lg="12">
+              <a-card title="Tổng số Incident theo Ca" :bordered="false">
+                <AntDrillBarChart :data="state.charts.shiftPriority.data" :filters="filters" />
+              </a-card>
+            </a-col>
+            <!-- KẾT THÚC THAY ĐỔI -->
+
           </a-row>
         </a-spin>
       </div>
@@ -68,7 +76,7 @@ import dayjs from 'dayjs';
 import KpiCard from './components/KpiCard.vue';
 import AntPieChart from './components/charts/AntPieChart.vue';
 import AntTreemapChart from './components/charts/AntTreemapChart.vue';
-import AntGroupedBarChart from './components/charts/AntGroupedBarChart.vue'; 
+import AntDrillBarChart from './components/charts/AntDrillBarChart.vue';
 import AntStackedBarChart from './components/charts/AntStackedBarChart.vue'; 
 import AntMultiLineChart from './components/charts/AntMultiLineChart.vue';
 import { useDashboard } from './composables/useDashboard.js';

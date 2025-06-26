@@ -72,32 +72,77 @@ public class CubeController : ControllerBase
 
         var headers = new List<string> { "Service", "Priority", "AssignmentGroup", "Count" };
         var result = QueryCube(mdx, headers);
-        return Ok(result);
+        var filteredResult = result
+           .Where(r => r["Priority"] != null && !string.IsNullOrEmpty(r["Priority"].ToString()))
+           .ToList();
+
+        return Ok(filteredResult);
     }
 
-    [HttpGet("shift-priority-distribution")]
-    public IActionResult GetShiftPriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery(Name = "assignmentGroups[]")] List<string>? assignmentGroups)
+    [HttpGet("shift-distribution")]
+    public IActionResult GetShiftDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery(Name = "assignmentGroups[]")] List<string>? assignmentGroups)
     {
         string dateFilter = month.HasValue
             ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
             : $"[Dim Date].[Year].&[{year}]";
 
-        string groupMembers = BuildGroupMembers(assignmentGroups);
+        string groupSlicer = BuildSlicerFilter(assignmentGroups);
 
         string mdx = $@"
             SELECT 
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY (
-                    [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Name].MEMBERS *
-                    {groupMembers}
-                ) ON ROWS
+                NON EMPTY [Dim Shift].[Shift Name].MEMBERS ON ROWS
             FROM [{_config.CubeName}]
-            WHERE ({dateFilter})";
+            WHERE ({dateFilter}{groupSlicer})";
 
-        var headers = new List<string> { "Shift", "Priority", "AssignmentGroup", "Count" };
+        var headers = new List<string> { "Shift", "Count" };
         var result = QueryCube(mdx, headers);
-        return Ok(result);
+
+        var mappedResult = result.Select(r => new {
+            shift = r["Shift"],
+            count = r["Count"]
+        }).ToList();
+
+        return Ok(mappedResult);
+    }
+
+    [HttpGet("priority-details-for-shift")]
+    public IActionResult GetPriorityDetailsForShift([FromQuery] int year, [FromQuery] int? month, [FromQuery(Name = "assignmentGroups[]")] List<string>? assignmentGroups, [FromQuery] string shift)
+    {
+        if (string.IsNullOrEmpty(shift))
+        {
+            return BadRequest("Shift parameter is required.");
+        }
+
+        string dateFilter = month.HasValue
+            ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
+            : $"[Dim Date].[Year].&[{year}]";
+
+        string groupSlicer = BuildSlicerFilter(assignmentGroups);
+
+        string mdx = $@"
+            SELECT 
+                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+                NON EMPTY [Dim Priority].[Priority Name].MEMBERS ON ROWS
+            FROM [{_config.CubeName}]
+            WHERE (
+                {dateFilter},
+                [Dim Shift].[Shift Name].&[{shift}]
+                {groupSlicer}
+            )";
+
+        var headers = new List<string> { "Priority", "Count" };
+        var result = QueryCube(mdx, headers);
+
+        var mappedResult = result
+            .Where(r => r["Priority"] != null && !string.IsNullOrEmpty(r["Priority"].ToString()))
+            .Select(r => new {
+                priority = r["Priority"],
+                count = r["Count"]
+            })
+            .ToList();
+
+        return Ok(mappedResult);
     }
 
     [HttpGet("assignment-group-distribution")]
@@ -200,13 +245,16 @@ public class CubeController : ControllerBase
     {
         if (groups == null || !groups.Any()) return "";
         var sb = new StringBuilder();
-        sb.Append(", {");
+        sb.Append(", ");
+        if (groups.Count > 1) sb.Append("{");
+
         for (int i = 0; i < groups.Count; i++)
         {
             sb.Append($"[Dim Assignment Group].[Assignment Group Name].&[{groups[i]}]");
             if (i < groups.Count - 1) sb.Append(", ");
         }
-        sb.Append("}");
+
+        if (groups.Count > 1) sb.Append("}");
         return sb.ToString();
     }
 
@@ -261,7 +309,10 @@ public class CubeController : ControllerBase
             var row = new Dictionary<string, object?>();
             for (int i = 0; i < reader.FieldCount; i++)
             {
-                row[headers[i]] = reader.IsDBNull(i) ? null : reader[i];
+                if (i < headers.Count)
+                {
+                    row[headers[i]] = reader.IsDBNull(i) ? null : reader[i];
+                }
             }
             data.Add(row);
         }
