@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\BIDashboard\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj": {}
+    "F:\\University_Project\\3rd_Year\\3rd_semester\\Business Inteligence\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj": {}
   },
   "projects": {
-    "D:\\BIDashboard\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj": {
+    "F:\\University_Project\\3rd_Year\\3rd_semester\\Business Inteligence\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\BIDashboard\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj",
+        "projectUniqueName": "F:\\University_Project\\3rd_Year\\3rd_semester\\Business Inteligence\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj",
         "projectName": "CubeDashboardAPI",
-        "projectPath": "D:\\BIDashboard\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj",
-        "packagesPath": "C:\\Users\\quanh\\.nuget\\packages\\",
-        "outputPath": "D:\\BIDashboard\\BIDashboard\\backend\\CubeDashboardAPI\\obj\\",
+        "projectPath": "F:\\University_Project\\3rd_Year\\3rd_semester\\Business Inteligence\\BIDashboard\\backend\\CubeDashboardAPI\\CubeDashboardAPI.csproj",
+        "packagesPath": "C:\\Users\\ltpha\\.nuget\\packages\\",
+        "outputPath": "F:\\University_Project\\3rd_Year\\3rd_semester\\Business Inteligence\\BIDashboard\\backend\\CubeDashboardAPI\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+          "D:\\Visual Studio\\SDK\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\quanh\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\ltpha\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -26,6 +26,7 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -44,7 +45,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "9.0.200"
       },
       "frameworks": {
         "net9.0": {
@@ -90,7 +91,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

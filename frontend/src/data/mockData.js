@@ -21,6 +21,14 @@ export const SHIFTS = [
   { id: 's3', name: 'Ca Đêm' },
 ];
 
+// THÊM MỚI: Dimension cho Phòng ban
+export const ASSIGNMENT_GROUPS = [
+    { id: 'grp01', name: 'Đội Hạ tầng (Infrastructure)' },
+    { id: 'grp02', name: 'Đội Hỗ trợ Ứng dụng' },
+    { id: 'grp03', name: 'Đội Quản trị CSDL' },
+    { id: 'grp04', name: 'Đội An ninh mạng' },
+];
+
 // Hàm tạo dữ liệu incident ngẫu nhiên
 function createIncidents(count, startDate, endDate) {
   const incidents = [];
@@ -36,6 +44,8 @@ function createIncidents(count, startDate, endDate) {
       serviceId: SERVICES[Math.floor(Math.random() * SERVICES.length)].id,
       priorityId: PRIORITIES[Math.floor(Math.random() * PRIORITIES.length)].id,
       shiftId: SHIFTS[Math.floor(Math.random() * SHIFTS.length)].id,
+      // THÊM MỚI: Gán ngẫu nhiên một phòng ban
+      assignmentGroupId: ASSIGNMENT_GROUPS[Math.floor(Math.random() * ASSIGNMENT_GROUPS.length)].id,
     });
   }
   return incidents;
