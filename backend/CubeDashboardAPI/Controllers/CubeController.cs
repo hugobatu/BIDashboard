@@ -296,7 +296,7 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Priority].[Priority Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS *
                     [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
@@ -321,7 +321,7 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Priority].[Priority Name].MEMBERS
+                    [Dim Priority].[Priority Code].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
             WHERE (
@@ -346,7 +346,7 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS *
                 	[Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
@@ -371,7 +371,7 @@ public class CubeController : ControllerBase
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Name].MEMBERS *
+                    [Dim Priority].[Priority Code].MEMBERS *
                     [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
             FROM [BI Do An]
