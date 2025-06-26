@@ -168,10 +168,10 @@ public class CubeController : ControllerBase
                 WHERE D.Year = {year} AND D.Month = {month.Value}";
             var latestDayResult = _sqlService.QueryScalar(sql);
             int latestDay = (latestDayResult != null && latestDayResult != DBNull.Value) ? Convert.ToInt32(latestDayResult) : 0;
-            if (latestDay == 0) return (0, "Incident Mới (Ngày)");
+            if (latestDay == 0) return (0, "Số Incident Mới (Ngày)");
 
             dateFilter = $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}], [Dim Date].[Day].&[{latestDay}])";
-            latestTitle = $"Incident Mới (Ngày {latestDay})";
+            latestTitle = $"Số Incident Mới (Ngày {latestDay})";
         }
         else
         {
@@ -181,10 +181,10 @@ public class CubeController : ControllerBase
                 WHERE D.Year = {year}";
             var latestMonthResult = _sqlService.QueryScalar(sql);
             int latestMonth = (latestMonthResult != null && latestMonthResult != DBNull.Value) ? Convert.ToInt32(latestMonthResult) : 0;
-            if (latestMonth == 0) return (0, "Incident Mới (Tháng)");
+            if (latestMonth == 0) return (0, "Số Incident Mới (Tháng)");
 
             dateFilter = $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{latestMonth}])";
-            latestTitle = $"Incident Mới (Tháng {latestMonth})";
+            latestTitle = $"Số Incident Mới (Tháng {latestMonth})";
         }
 
         string mdx = $@"

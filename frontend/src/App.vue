@@ -39,7 +39,7 @@
         <a-spin :spinning="state.loading" size="large" tip="Đang tải dữ liệu...">
           <a-row :gutter="[24, 24]">
             <a-col :xs="24" :sm="24" :md="8"><KpiCard title="Tổng số Incident" :value="state.kpi.total" theme="info" /></a-col>
-            <a-col :xs="24" :sm="12" :md="8"><KpiCard title="Incident Cao/Nghiêm trọng" :value="state.kpi.highPriority" theme="danger" /></a-col>
+            <a-col :xs="24" :sm="12" :md="8"><KpiCard title="Số Incident Nghiêm trọng" :value="state.kpi.highPriority" theme="danger" /></a-col>
             <a-col :xs="24" :sm="12" :md="8"><KpiCard :title="state.kpi.latestTitle" :value="state.kpi.latestValue" theme="warning" /></a-col>
           </a-row>
           
