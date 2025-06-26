@@ -1,429 +1,238 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AnalysisServices.AdomdClient;
-using Microsoft.Data.SqlClient;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Razor.TagHelpers;
-using System.Net.Http.Headers;
-using System.Xml.XPath;
-using Azure.Core;
+using System.Text;
 
 [ApiController]
 [Route("")]
 public class CubeController : ControllerBase
 {
-    private readonly SqlQueryService _sqlService;
     private readonly CubeConfig _config;
-    private readonly SqlDbConfig _sqlConfig;
+    private readonly SqlQueryService _sqlService;
 
-    public CubeController(CubeConfig config, SqlDbConfig sqlConfig, SqlQueryService sqlService)
+    public CubeController(CubeConfig config, SqlQueryService sqlService)
     {
-        _sqlService = sqlService;
         _config = config;
-        _sqlConfig = sqlConfig;
+        _sqlService = sqlService;
     }
 
-    // 1.1 Tổng số lượng Incident gần nhất trong 1 năm (trả về tháng gần nhất trong năm đó)
-    [HttpGet("latestIncidentInYear")]
-    public IActionResult GetLatestIncidentInYear(int year)
+    [HttpGet("kpis")]
+    public IActionResult GetKpis([FromQuery] int year, [FromQuery] int? month, [FromQuery] List<string>? assignmentGroups)
     {
-        string sql = $@"
-            SELECT MAX(D.Month)
-            FROM [dw].[DimDate] D
-            JOIN [dw].[FactIncident] F
-            ON F.DateKey = D.DateKey
-            WHERE D.Year = {year}
-        ";
-
-        object? latestMonthIncident = _sqlService.QueryScalar(sql);
-        if (latestMonthIncident == null)
-        {
-            return NotFound($"No available data found for year {year}.");
-        }
-
-        string month = latestMonthIncident.ToString()!;
-
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
         string cube = _config.CubeName;
 
-        string mdx = $@"
-            SELECT
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS
-            FROM [{cube}]
-            WHERE (
-                [Dim Date].[Year].&[{year}],
-                [Dim Date].[Month].&[{month}]
-            )
-        ";
+        string dateFilter = month.HasValue
+            ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
+            : $"[Dim Date].[Year].&[{year}]";
 
-        var headers = new List<string> { $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
+        string groupFilter = BuildGroupFilter(assignmentGroups);
+
+        string mdx = $@"
+            WITH
+                MEMBER [Measures].[Total Incidents] AS [Measures].[Fact Incident Count]
+                MEMBER [Measures].[High Priority Incidents] AS 
+                    SUM({{ [Dim Priority].[Priority Code].&[1C], [Dim Priority].[Priority Code].&[2H] }}, [Measures].[Fact Incident Count])
+            SELECT
+                {{
+                    [Measures].[Total Incidents],
+                    [Measures].[High Priority Incidents]
+                }} ON COLUMNS
+            FROM [{cube}]
+            WHERE ({dateFilter}{groupFilter})";
+
+        var kpiResult = QueryKpiCube(mdx);
+        var latestResult = GetLatestIncidentValue(year, month, assignmentGroups);
 
         var response = new
         {
-            latestMonth = int.Parse(month),
-            year,
-            data = result
+            total = kpiResult.GetValueOrDefault("[Measures].[Total Incidents]", 0),
+            highPriority = kpiResult.GetValueOrDefault("[Measures].[High Priority Incidents]", 0),
+            latestValue = latestResult.latestValue,
+            latestTitle = latestResult.latestTitle
         };
 
         return Ok(response);
     }
-    // 1.2 Tổng số lượng Incident gần nhất trong 1 tháng (trả về ngày gần nhất của tháng đó)
-    [HttpGet("latestIncidentInMonthYear")]
-    public IActionResult GetLatestIncidentInMonthYear(int year, int month)
-    {
-        string sql = $@"
-            SELECT MAX(D.Day)
-            FROM [dw].[DimDate] D
-            JOIN [dw].[FactIncident] F
-            ON F.DateKey = D.DateKey
-            WHERE D.Year = {year} AND D.Month = {month}
-        ";
 
-        object? latestMonthIncident = _sqlService.QueryScalar(sql);
-        if (latestMonthIncident == null)
-        {
-            return NotFound($"No available data found for year {year}.");
-        }
+    [HttpGet("service-priority-distribution")]
+    public IActionResult GetServicePriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery] List<string>? assignmentGroups)
+    {
+        string dateFilter = month.HasValue ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])" : $"[Dim Date].[Year].&[{year}]";
+        string groupFilter = BuildGroupFilter(assignmentGroups);
 
-        string day = latestMonthIncident.ToString()!;
-
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string cube = _config.CubeName;
-
-        string mdx = $@"
-            SELECT
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS
-            FROM [{cube}]
-            WHERE (
-                [Dim Date].[Year].&[{year}],
-                [Dim Date].[Month].&[{month}],
-                [Dim Date].[Day].&[{day}]
-            )
-        ";
-        
-        var headers = new List<string> { $"TotalIncident)" };
-        var result = QueryCube(connStr, mdx, headers);
-
-        var response = new
-        {
-            latestDay = int.Parse(day),
-            month = month,
-            year,
-            data = result
-        };
-
-        return Ok(response);
-    }
-    // 2.1 Tổng số incident (ra 1 con số, filter theo năm)
-    [HttpGet("totalIncidentByYear")]
-    public IActionResult GetTotalIncidentByYear(int year)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT 
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS
-            FROM [{cube}]
-            WHERE (
-                [Dim Date].[Year].&[{year}]
-            )
-        ";
-        var headers = new List<string> { $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-
-        return Ok(result);
-    }
-    // 2.2 Tổng số incident (ra 1 con số, filter theo tháng + năm)
-    [HttpGet("totalIncidentByMonthYear")]
-    public IActionResult GetTotalIncidentByMonthYear(int year, int month)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECTt
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS
-            FROM [{cube}]
-            WHERE (
-                [Dim Date].[Year].&[{year}],
-                [Dim Date].[Month].&[{month}]
-            )
-        ";
-        var headers = new List<string> { $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-
-        return Ok(result);
-    }
-    // 3.1 Tổng số incident có độ ưu tiên cao (filter theo năm)
-    [HttpGet("highPrioritizedIncidentByYear")]
-    public IActionResult GetPrioritizedIncidentByYear(int year)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS
-            FROM [BI Do An]
-            WHERE (
-                    {{[Dim Priority].[Priority Code].&[1C]}},
-                    [Dim Date].[Year].&[{year}]
-            )";
-        var headers = new List<string> { $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-
-        return Ok(result);
-    }
-    // 3.2 Tổng số incident có độ ưu tiên cao (filter theo tháng + năm)
-    [HttpGet("highPrioritizedIncidentByMonthYear")]
-    public IActionResult GetPrioritizedIncidentByMonthYear(int year, int month)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS
-            FROM [BI Do An]
-            WHERE (
-                    {{[Dim Priority].[Priority Code].&[1C]}},
-                    [Dim Date].[Year].&[{year}],
-                    [Dim Date].[Month].&[{month}]
-            )";
-        var headers = new List<string> { $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-        
-        return Ok(result);
-    }
-    // 4.1 Số lượng Incident theo từng service (filter theo năm)
-    [HttpGet("totalIncidentByServiceYear")]
-    public IActionResult GetTotalIncidentByServiceYear(int year)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY(
-                    [Dim Business Service].[Business Service Name].MEMBERS * 
-                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
-                ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}]
-            )";
-        var headers = new List<string> { $"Service", $"AssignmentGroup", $"TotalIncident"};
-        var result = QueryCube(connStr, mdx, headers);
-        
-        return Ok(result);
-    }
-    // 4.2 Số lượng Incident theo từng service (filter theo tháng + năm)
-    [HttpGet("totalIncidentByServiceMonthYear")]
-    public IActionResult GetTotalIncidentByServiceMonthYear(int year, int month)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT
-                {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY(
-                    [Dim Business Service].[Business Service Name].MEMBERS * 
-                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
-                ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}],
-                [Dim Date].[Month].&[{month}]
-            )";
-        var headers = new List<string> { $"Service", $"AssignmentGroup", $"TotalIncident"};
-        var result = QueryCube(connStr, mdx, headers);
-        return Ok(result);
-    }
-    // 5.1 Số lượng incident của từng service theo từng tháng trong 1 năm (filter theo theo năm)
-    [HttpGet("incidentByServiceYear")]
-    public IActionResult GetIncidentByServiceYear(int year)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT 
-                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY 
-                (
-                    [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Date].[Day].MEMBERS *
-                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
-                ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}]
-            )";
-        var headers = new List<string> { $"Service", $"Month", $"AssignmentGroup", $"TotalIncident"};
-        var result = QueryCube(connStr, mdx, headers);
-        
-        return Ok(result);
-    }
-    // 5.2 Số lượng incident của từng service theo từng ngày trong 1 tháng (filter theo theo tháng + năm)
-    [HttpGet("incidentByServiceMonthYear")]
-    public IActionResult GetIncidentByServiceMonthYear(int year, int month)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT
-                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY 
-                (
-                    [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Date].[Day].MEMBERS *
-                    [Dim Assignment Group].[Assignment Group Name].MEMBERS
-                ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}], 
-                [Dim Date].[Month].&[{month}]
-            )";
-        var headers = new List<string> { $"Service", $"Day", $"AssignmentGroup",$"Total Incident"};
-        var result = QueryCube(connStr, mdx, headers);
-        
-        return Ok(result);
-    }
-    // 6.1 Tổng số lượng Incident theo mức độ ưu tiên của từng loại service (filter theo năm)
-    [HttpGet("incidentByServicePriorityYear")]
-    public IActionResult GetIncidentByServicePriorityYear(int year)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
         string mdx = $@"
             SELECT 
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS *
+                    [Dim Priority].[Priority Name].MEMBERS *
                     [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}]
-            )
-        ";
+            FROM [{_config.CubeName}]
+            WHERE ({dateFilter}{groupFilter})";
 
-        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-
+        var headers = new List<string> { "Service", "Priority", "AssignmentGroup", "Count" };
+        var result = QueryCube(mdx, headers);
         return Ok(result);
     }
-    // 6.2 Tổng số lượng Incident theo mức độ ưu tiên của từng loại service (filter theo tháng + năm)
-    [HttpGet("incidentByServicePriorityMonthYear")]
-    public IActionResult GetIncidentByServicePriorityMonthYear(int year, int month)
+
+    [HttpGet("trend-by-daeo-group")]
+    public IActionResult GetTrendByDaeoGroup([FromQuery] int year, [FromQuery] int? month)
     {
         string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        string dateDimension = month.HasValue ? "[Dim Date].[Day]" : "[Dim Date].[Month]";
+        string dateFilter = month.HasValue
+            ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])"
+            : $"[Dim Date].[Year].&[{year}]";
+
+        string[] daeoGroups = { "DAEO" };
+
+        var daeoMembers = string.Join(", ", daeoGroups.Select(g => $"[Dim Assignment Group].[Assignment Group Name].&[{g}]"));
+
         string mdx = $@"
-            SELECT 
-                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY (
-                    [Dim Business Service].[Business Service Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS
-                ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}],
-                [Dim Date].[Month].&[{month}]
-            )
-        ";
+        WITH 
+            MEMBER [Dim Assignment Group].[Assignment Group Name].[DAEO] AS 
+                SUM( {{ {daeoMembers} }} )
+            MEMBER [Dim Assignment Group].[Assignment Group Name].[NON - DAEO] AS 
+                ([Dim Assignment Group].[Assignment Group Name].[All] - [Dim Assignment Group].[Assignment Group Name].[DAEO])
+        SELECT 
+            NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
+            NON EMPTY (
+                {{ 
+                    [Dim Assignment Group].[Assignment Group Name].[DAEO], 
+                    [Dim Assignment Group].[Assignment Group Name].[NON - DAEO] 
+                }} *
+                {dateDimension}.MEMBERS
+            ) ON ROWS
+        FROM [{cube}]
+        WHERE ({dateFilter})";
 
-        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-
+        var headers = new List<string> { "AssignmentGroup", "Time", "Count" };
+        var result = QueryCube(mdx, headers);
         return Ok(result);
     }
-    // 7.1 Tổng số lượng Incident theo mức độ ưu tiên của từng loại ca (filter theo tháng)
-    [HttpGet("incidentByShiftPriorityYear")]
-    public IActionResult GetIncidentByShiftPriorityYear(int year)
+
+    [HttpGet("shift-priority-distribution")]
+    public IActionResult GetShiftPriorityDistribution([FromQuery] int year, [FromQuery] int? month, [FromQuery] List<string>? assignmentGroups)
     {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        string dateFilter = month.HasValue ? $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}])" : $"[Dim Date].[Year].&[{year}]";
+        string groupFilter = BuildGroupFilter(assignmentGroups);
+
         string mdx = $@"
             SELECT 
                 NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
                 NON EMPTY (
                     [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS *
-                	[Dim Assignment Group].[Assignment Group Name].MEMBERS
-                ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}]
-            )
-        ";
-
-        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
-
-        return Ok(result);
-    }
-    // 7.1 Tổng số lượng Incident theo mức độ ưu tiên của từng loại ca (filter theo tháng)
-    [HttpGet("incidentByShiftPriorityMonthYear")]
-    public IActionResult GetIncidentByShiftPriorityMonthYear(int year, int month)
-    {
-        string cube = _config.CubeName;
-        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
-        string mdx = $@"
-            SELECT 
-                NON EMPTY {{[Measures].[Fact Incident Count]}} ON COLUMNS,
-                NON EMPTY (
-                    [Dim Shift].[Shift Name].MEMBERS *
-                    [Dim Priority].[Priority Code].MEMBERS *
+                    [Dim Priority].[Priority Name].MEMBERS *
                     [Dim Assignment Group].[Assignment Group Name].MEMBERS
                 ) ON ROWS
-            FROM [BI Do An]
-            WHERE (
-                [Dim Date].[Year].&[{year}],
-                [Dim Date].[Month].&[{month}]
-            )
-        ";
-        
-        var headers = new List<string> { $"Service", $"Priority", $"AssignmentGroup", $"TotalIncident" };
-        var result = QueryCube(connStr, mdx, headers);
+            FROM [{_config.CubeName}]
+            WHERE ({dateFilter}{groupFilter})";
 
+        var headers = new List<string> { "Shift", "Priority", "AssignmentGroup", "Count" };
+        var result = QueryCube(mdx, headers);
         return Ok(result);
     }
-    //  MDX query
-    private List<Dictionary<string, object?>> QueryCube(string connStr, string mdx, List<string>? customHeaders = null)
+
+    private (int latestValue, string latestTitle) GetLatestIncidentValue(int year, int? month, List<string>? assignmentGroups)
     {
+        string groupFilterMdx = BuildGroupFilter(assignmentGroups);
+        string mdx;
+        string dateFilter;
+        string latestTitle;
+
+        if (month.HasValue)
+        {
+            string sql = $@"
+                SELECT MAX(D.Day)
+                FROM [dw].[FactIncident] F
+                JOIN [dw].[DimDate] D ON F.DateKey = D.DateKey
+                WHERE D.Year = {year} AND D.Month = {month.Value}";
+
+            var latestDayResult = _sqlService.QueryScalar(sql);
+            int latestDay = (latestDayResult != null && latestDayResult != DBNull.Value) ? Convert.ToInt32(latestDayResult) : 0;
+
+            if (latestDay == 0) return (0, $"Incident Mới (Ngày)");
+
+            dateFilter = $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{month.Value}], [Dim Date].[Day].&[{latestDay}])";
+            latestTitle = $"Incident Mới (Ngày {latestDay})";
+        }
+        else
+        {
+            string sql = $@"
+                SELECT MAX(D.Month)
+                FROM [dw].[FactIncident] F
+                JOIN [dw].[DimDate] D ON F.DateKey = D.DateKey
+                WHERE D.Year = {year}";
+
+            var latestMonthResult = _sqlService.QueryScalar(sql);
+            int latestMonth = (latestMonthResult != null && latestMonthResult != DBNull.Value) ? Convert.ToInt32(latestMonthResult) : 0;
+
+            if (latestMonth == 0) return (0, $"Incident Mới (Tháng)");
+
+            dateFilter = $"([Dim Date].[Year].&[{year}], [Dim Date].[Month].&[{latestMonth}])";
+            latestTitle = $"Incident Mới (Tháng {latestMonth})";
+        }
+
+        mdx = $@"
+            SELECT {{[Measures].[Fact Incident Count]}} ON COLUMNS
+            FROM [{_config.CubeName}]
+            WHERE ({dateFilter}{groupFilterMdx})";
+
+        var resultDict = QueryKpiCube(mdx);
+        return (resultDict.GetValueOrDefault("[Measures].[Fact Incident Count]", 0), latestTitle);
+    }
+
+    private string BuildGroupFilter(List<string>? groups)
+    {
+        if (groups == null || !groups.Any()) return "";
+        var sb = new StringBuilder();
+        sb.Append(", {");
+        for (int i = 0; i < groups.Count; i++)
+        {
+            sb.Append($"[Dim Assignment Group].[Assignment Group Name].&[{groups[i]}]");
+            if (i < groups.Count - 1) sb.Append(", ");
+        }
+        sb.Append("}");
+        return sb.ToString();
+    }
+
+    private Dictionary<string, int> QueryKpiCube(string mdx)
+    {
+        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
+        var result = new Dictionary<string, int>();
+        using var conn = new AdomdConnection(connStr);
+        conn.Open();
+        using var cmd = new AdomdCommand(mdx, conn);
+        using var reader = cmd.ExecuteReader();
+
+        if (reader.Read())
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                result[reader.GetName(i)] = reader.IsDBNull(i) ? 0 : Convert.ToInt32(reader[i]);
+            }
+        }
+        return result;
+    }
+
+    private List<Dictionary<string, object?>> QueryCube(string mdx, List<string> headers)
+    {
+        string connStr = $"Data Source={_config.DataSource};Catalog={_config.Catalog}";
         var data = new List<Dictionary<string, object?>>();
         using var conn = new AdomdConnection(connStr);
         conn.Open();
-
         using var cmd = new AdomdCommand(mdx, conn);
         using var reader = cmd.ExecuteReader();
 
         while (reader.Read())
         {
             var row = new Dictionary<string, object?>();
-            bool hasNullDimension = false;
-
             for (int i = 0; i < reader.FieldCount; i++)
             {
-                string header = (customHeaders != null && i < customHeaders.Count)
-                    ? customHeaders[i]
-                    : string.IsNullOrWhiteSpace(reader.GetName(i)) ? $"Column{i}" : reader.GetName(i);
-
-                object? value = reader.IsDBNull(i) ? null : reader[i];
-
-                // Nếu dimension mà null (và không phải chỉ cột measure), thì bỏ qua dòng này
-                // Giả định: measure luôn là cột cuối cùng (hoặc tự cấu hình tên cột để phân biệt)
-                if (i < reader.FieldCount - 1 && value == null)
-                {
-                    hasNullDimension = true;
-                    break;
-                }
-
-                row[header] = value;
+                row[headers[i]] = reader.IsDBNull(i) ? null : reader[i];
             }
-
-            if (!hasNullDimension)
-                data.Add(row);
+            data.Add(row);
         }
-
         return data;
     }
 }

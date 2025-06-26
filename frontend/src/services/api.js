@@ -1,40 +1,47 @@
-import { rawIncidents, SERVICES, PRIORITIES, SHIFTS, ASSIGNMENT_GROUPS } from '@/data/mockData.js';
-import dayjs from 'dayjs';
+import axios from 'axios';
+
+const apiClient = axios.create({
+  baseURL: 'https://localhost:7034',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 /**
- * Giả lập việc gọi API để lấy dữ liệu dashboard đã được lọc.
- * Sau này, bạn chỉ cần thay thế phần logic lọc bằng một lệnh fetch/axios thật.
- * @param {object} filters - Các bộ lọc từ UI, ví dụ: { mode: 'month', date: dayjs_object, groups: ['grp01'] }
- * @returns {Promise<object>} - Một promise trả về dữ liệu đã được xử lý.
+ * Hàm tổng hợp, gọi tất cả các API cần thiết từ backend.
+ * @param {object} filters - { mode, date, groups }
+ * @returns {Promise<object>} - Một object lớn chứa tất cả dữ liệu từ backend
  */
-export function fetchDashboardData(filters) {
-  console.log("Đang gọi API giả lập với bộ lọc:", filters);
+export async function fetchDashboardData(filters) {
+  const { mode, date, groups } = filters;
+  
+  const params = {
+    year: date.year(),
+    ...(mode === 'month' && { month: date.month() + 1 }), 
+    assignmentGroups: groups,
+  };
 
-  return new Promise(resolve => {
-    // Giả lập độ trễ mạng
-    setTimeout(() => {
-      // 1. Lọc theo thời gian
-      let incidentsByDate;
-      if (filters.mode === 'month') {
-        incidentsByDate = rawIncidents.filter(inc => dayjs(inc.date).isSame(filters.date, 'month'));
-      } else {
-        incidentsByDate = rawIncidents.filter(inc => dayjs(inc.date).isSame(filters.date, 'year'));
-      }
+  const trendParams = {
+    year: date.year(),
+    ...(mode === 'month' && { month: date.month() + 1 }),
+  };
 
-      // 2. Lọc tiếp theo phòng ban
-      let finalFilteredIncidents = incidentsByDate;
-      if (filters.groups && filters.groups.length > 0) {
-        finalFilteredIncidents = incidentsByDate.filter(inc => 
-          filters.groups.includes(inc.assignmentGroupId)
-        );
-      }
+  try {
+    const [kpisRes, servicePriorityRes, shiftPriorityRes, trendByDaeoRes] = await Promise.all([
+      apiClient.get('/kpis', { params }),
+      apiClient.get('/service-priority-distribution', { params }),
+      apiClient.get('/shift-priority-distribution', { params }),
+      apiClient.get('/trend-by-daeo-group', { params: trendParams }),
+    ]);
 
-      // Trả về dữ liệu thô đã được lọc, và các dimension để xử lý ở tầng logic
-      resolve({
-        filteredData: finalFilteredIncidents,
-        dimensions: { SERVICES, PRIORITIES, SHIFTS, ASSIGNMENT_GROUPS }
-      });
-
-    }, 500); // 500ms delay
-  });
+    return {
+      kpiData: kpisRes.data,
+      servicePriorityData: servicePriorityRes.data,
+      shiftPriorityData: shiftPriorityRes.data,
+      trendByDaeoData: trendByDaeoRes.data,
+    };
+  } catch (error) {
+    console.error("Lỗi khi gọi API backend:", error);
+    throw error;
+  }
 }

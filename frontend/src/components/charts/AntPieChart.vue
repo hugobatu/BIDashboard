@@ -1,4 +1,3 @@
-<!-- src/components/charts/AntPieChart.vue -->
 <template>
   <div ref="container" :style="{ height: '350px' }"></div>
 </template>
@@ -32,7 +31,6 @@ const renderChart = () => {
     
     label: {
       type: 'outer',
-      // SỬA ĐỔI CHÍNH Ở ĐÂY: Làm tròn đến 2 chữ số thập phân
       content: (data) => `${data.type}: ${(data.percent * 100).toFixed(2)}%`,
       layout: {
         type: 'pie-spider'

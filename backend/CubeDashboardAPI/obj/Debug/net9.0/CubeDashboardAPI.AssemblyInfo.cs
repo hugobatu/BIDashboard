@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CubeDashboardAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+096ffbf20574ce12e49ad7a9b0557f49b8349cab")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+acdfb62066d888dde8ed881693ee2c885e5bf546")]
 [assembly: System.Reflection.AssemblyProductAttribute("CubeDashboardAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CubeDashboardAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

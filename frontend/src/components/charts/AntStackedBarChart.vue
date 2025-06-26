@@ -10,7 +10,7 @@ const props = defineProps({
   data: Array,
   xField: String,
   yField: String,
-  groupField: String,
+  seriesField: String,
   color: [Array, Function],
 });
 
@@ -23,24 +23,21 @@ const renderChart = () => {
     }
     if (!container.value) return;
 
-    const config = {
+    chart = new Bar(container.value, {
         data: props.data,
-        isGroup: true,
+        isStack: true,
         xField: props.yField,
         yField: props.xField,
-        seriesField: props.groupField,
-        marginRatio: 0.1,
+        seriesField: props.seriesField,
+        color: props.color,
         label: {
           position: 'middle',
           layout: [{ type: 'interval-adjust-position' }],
         },
-    };
-
-    if (props.color) {
-        config.color = props.color;
-    }
-
-    chart = new Bar(container.value, config);
+        legend: {
+          position: 'right-top',
+        },
+    });
     chart.render();
 }
 
