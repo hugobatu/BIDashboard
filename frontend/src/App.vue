@@ -1,83 +1,63 @@
 <template>
-  <a-layout style="min-height: 100vh; background-color: #f0f2f5;">
-    <a-layout-header style="background: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between;">
-      <h1 style="font-size: 20px; font-weight: 600;">Tổng quan Hiệu suất Hệ thống - Phân tích Incident</h1>
-      <a-space :size="12">
-        <a-select
-          v-model:value="filters.groups"
-          mode="multiple"
-          style="width: 250px"
-          placeholder="Lọc theo phòng ban..."
-          allow-clear
-          :options="assignmentGroupOptions"
-        >
-        </a-select>
-        <a-radio-group v-model:value="filters.mode">
-          <a-radio-button value="month">Theo Tháng</a-radio-button>
-          <a-radio-button value="year">Theo Năm</a-radio-button>
-        </a-radio-group>
-        <a-date-picker 
-          v-model:value="filters.date"
-          :picker="filters.mode"
-          :allow-clear="false"
-        />
-      </a-space>
+  <a-layout style="min-height: 100vh;">
+    <a-layout-header 
+      :style="{ 
+        position: 'fixed', 
+        zIndex: 10, 
+        width: '100%', 
+        background: '#fff', 
+        padding: '0 24px',
+        borderBottom: '1px solid #f0f0f0' 
+      }"
+    >
+      <div 
+        class="header-content" 
+        style="display: flex; align-items: center; justify-content: space-between; max-width: 1600px; margin: 0 auto;"
+      >
+        <h1 style="font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">
+          Tổng quan Hiệu suất Hệ thống
+        </h1>
+        <a-space :size="12">
+          <a-select v-model:value="filters.groups" mode="multiple" style="width: 200px" placeholder="Lọc theo phòng ban..." allow-clear :options="assignmentGroupOptions" />
+          <a-radio-group v-model:value="filters.mode">
+            <a-radio-button value="month">Tháng</a-radio-button>
+            <a-radio-button value="year">Năm</a-radio-button>
+          </a-radio-group>
+          <a-date-picker v-model:value="filters.date" :picker="filters.mode" :allow-clear="false" />
+        </a-space>
+      </div>
     </a-layout-header>
 
-    <a-layout-content style="padding: 24px;">
-      <a-spin :spinning="state.loading" size="large" tip="Đang tải dữ liệu...">
-        <!-- Hàng 1: KPIs -->
-        <a-row :gutter="[24, 24]">
-          <a-col :xs="24" :sm="12" :lg="8">
-            <KpiCard title="Tổng số Incident" :value="state.kpi.total" theme="info" />
-          </a-col>
-          <a-col :xs="24" :sm="12" :lg="8">
-            <KpiCard title="Incident có Độ ưu tiên Cao/Nghiêm trọng" :value="state.kpi.highPriority" theme="danger" />
-          </a-col>
-          <a-col :xs="24" :sm="12" :lg="8">
-            <KpiCard :title="state.kpi.latestTitle" :value="state.kpi.latestValue" theme="warning" />
-          </a-col>
-        </a-row>
+    <a-layout-content 
+      :style="{ 
+        padding: '24px', 
+        marginTop: '64px',
+        background: '#f0f2f5' 
+      }"
+    >
+      <div style="max-width: 1600px; margin: 0 auto;">
+        <a-spin :spinning="state.loading" size="large" tip="Đang tải dữ liệu...">
+          <a-row :gutter="[24, 24]">
+            <a-col :xs="24" :sm="24" :md="8"><KpiCard title="Tổng số Incident" :value="state.kpi.total" theme="info" /></a-col>
+            <a-col :xs="24" :sm="12" :md="8"><KpiCard title="Incident Cao/Nghiêm trọng" :value="state.kpi.highPriority" theme="danger" /></a-col>
+            <a-col :xs="24" :sm="12" :md="8"><KpiCard :title="state.kpi.latestTitle" :value="state.kpi.latestValue" theme="warning" /></a-col>
+          </a-row>
+          
+          <a-row :gutter="[24, 24]" style="margin-top: 24px;">
+            <a-col :xs="24" :lg="12"><a-card title="Số lượng Incident theo Mức độ Ưu tiên trong các Service" :bordered="false"><AntStackedBarChart :data="state.charts.servicePriority.data" x-field="service" y-field="count" series-field="priority" :color="getBarPriorityColor" /></a-card></a-col>
+            <a-col :xs="24" :lg="12"><a-card title="Tỷ trọng Incident theo Mức độ Ưu tiên" :bordered="false"><AntPieChart :data="state.charts.priorityDistribution.data" angle-field="value" color-field="type" :color="getPiePriorityColor" /></a-card></a-col>
+          </a-row>
+          
+          <a-row :gutter="[24, 24]" style="margin-top: 24px;">
+            <a-col :span="24"><a-card title="Xu hướng Incident theo Nhóm DAEO và NON-DAEO" :bordered="false"><AntMultiLineChart :data="state.charts.trendByDaeo.data" x-field="time" y-field="count" series-field="group" /></a-card></a-col>
+          </a-row>
 
-        <a-row :gutter="[24, 24]" style="margin-top: 24px;">
-          <a-col :xs="24" :lg="12">
-            <a-card title="Số lượng Incident theo Mức độ Ưu tiên trong các Service" :bordered="false">
-              <AntStackedBarChart :data="state.charts.servicePriority.data" x-field="service" y-field="count" series-field="priority" :color="getBarPriorityColor" />
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :lg="12">
-            <a-card title="Tỷ trọng Incident theo Mức độ Ưu tiên" :bordered="false">
-              <AntPieChart :data="state.charts.priorityDistribution.data" angle-field="value" color-field="type" :color="getPiePriorityColor" />
-            </a-card>
-          </a-col>
-        </a-row>
-        
-        <a-row :gutter="[24, 24]" style="margin-top: 24px;">
-          <a-col :span="24">
-            <a-card title="Xu hướng Incident theo Nhóm DAEO và NON-DAEO" :bordered="false">
-              <AntMultiLineChart
-                :data="state.charts.trendByDaeo.data"
-                x-field="time"
-                y-field="count"
-                series-field="group"
-              />
-            </a-card>
-          </a-col>
-        </a-row>
-
-        <a-row :gutter="[24, 24]" style="margin-top: 24px;">
-          <a-col :xs="24" :lg="12">
-            <a-card title="Phân bổ Incident theo Phòng ban" :bordered="false">
-              <AntTreemapChart :data="state.charts.treemap.data" color-field="name" value-field="value" :color="groupColors" :total-value="state.kpi.total" />
-            </a-card>
-          </a-col>
-          <a-col :xs="24" :lg="12">
-            <a-card title="Tổng số Incident theo Mức độ Ưu tiên trong các Ca" :bordered="false">
-              <AntGroupedBarChart :data="state.charts.shiftPriority.data" x-field="shift" y-field="count" group-field="priority" :color="getBarPriorityColor" />
-            </a-card>
-          </a-col>
-        </a-row>
-      </a-spin>
+          <a-row :gutter="[24, 24]" style="margin-top: 24px;">
+            <a-col :xs="24" :lg="12"><a-card title="Phân bổ Incident theo Phòng ban" :bordered="false"><AntTreemapChart :data="state.charts.treemap.data" color-field="name" value-field="value" :color="groupColors" :total-value="state.kpi.total" /></a-card></a-col>
+            <a-col :xs="24" :lg="12"><a-card title="Tổng số Incident theo Mức độ Ưu tiên trong các Ca" :bordered="false"><AntGroupedBarChart :data="state.charts.shiftPriority.data" x-field="shift" y-field="count" group-field="priority" :color="getBarPriorityColor" /></a-card></a-col>
+          </a-row>
+        </a-spin>
+      </div>
     </a-layout-content>
   </a-layout>
 </template>
@@ -95,7 +75,6 @@ import { useDashboard } from './composables/useDashboard.js';
 
 const { state, updateDashboardData } = useDashboard();
 
-// ---- State cho các bộ lọc trên UI ----
 const filters = reactive({
   mode: 'month',
   date: dayjs('2025-05-29'),
@@ -109,7 +88,6 @@ const assignmentGroupOptions = computed(() => {
     }));
 });
 
-// ---- Bảng màu ----
 const groupColors = [
   '#5B8FF9', '#61DDAA', '#65789B', '#F6BD16', '#7262FD', 
   '#78D3F8', '#9661BC', '#F6903D', '#008685', '#F08BB4'
