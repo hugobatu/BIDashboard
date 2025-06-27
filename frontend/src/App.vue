@@ -37,32 +37,28 @@
     >
       <div style="max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; height: 100%;">
         <a-spin :spinning="state.loading" size="large" tip="Đang tải dữ liệu..." style="display: flex; flex-direction: column; height: 100%;">
-          
-          <!-- Hàng 1: KPI Cards -->
+
           <a-row :gutter="[24, 24]" style="flex: 0 0 auto;">
             <a-col :xs="24" :sm="24" :md="8"><KpiCard title="Tổng số Incident" :value="state.kpi.total" theme="info" /></a-col>
             <a-col :xs="24" :sm="12" :md="8"><KpiCard title="Số Incident Nghiêm trọng" :value="state.kpi.highPriority" theme="danger" /></a-col>
             <a-col :xs="24" :sm="12" :md="8"><KpiCard :title="state.kpi.latestTitle" :value="state.kpi.latestValue" theme="warning" /></a-col>
           </a-row>
-          
-          <!-- Wrapper cho các biểu đồ -->
+
           <div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: 24px; min-height: 0;">
-            
-            <!-- Hàng 2: Chứa 2 biểu đồ quan trọng -->
+
             <a-row :gutter="[24, 24]">
               <a-col :xs="24" :lg="12">
                 <a-card title="Số lượng Incident theo Mức độ Ưu tiên trong các Service" :bordered="false" class="limited-height-card">
-                  <AntStackedBarChart :data="state.charts.servicePriority.data" x-field="service" y-field="count" series-field="priority" :color="getBarPriorityColor" />
+                  <AntStackedBarChart :data="sortedServicePriorityData" x-field="service" y-field="count" series-field="priority" :color="getBarPriorityColor" />
                 </a-card>
               </a-col>
               <a-col :xs="24" :lg="12">
                 <a-card title="Xu hướng Incident theo Nhóm DAEO và NON-DAEO" :bordered="false" class="limited-height-card">
-                  <AntMultiLineChart :data="state.charts.trendByDaeo.data" x-field="time" y-field="count" series-field="group" />
+                  <AntMultiLineChart :data="state.charts.trendByDaeo.data" x-field="time" y-field="count" series-field="group" :color="groupColors"/>
                 </a-card>
               </a-col>
             </a-row>
 
-            <!-- Hàng 3: Chứa 3 biểu đồ còn lại -->
             <a-row :gutter="[24, 24]" style="margin-top: 24px;">
               <a-col :xs="24" :lg="8">
                 <a-card title="Tỷ trọng Incident theo Mức độ Ưu tiên" :bordered="false" class="limited-height-card">
@@ -76,7 +72,7 @@
               </a-col>
               <a-col :xs="24" :lg="8">
                 <a-card title="Tổng số Incident theo Ca" :bordered="false" class="limited-height-card">
-                  <AntDrillBarChart :data="state.charts.shiftPriority.data" :filters="filters" />
+                  <AntDrillBarChart :data="state.charts.shiftPriority.data" :filters="filters" :color="groupColors" />
                 </a-card>
               </a-col>
             </a-row>
@@ -115,18 +111,40 @@ const assignmentGroupOptions = computed(() => {
 });
 
 const groupColors = [
-  '#5B8FF9', '#61DDAA', '#65789B', '#F6BD16', '#7262FD', 
-  '#78D3F8', '#9661BC', '#F6903D', '#008BB4'
+  '#0072B2', // Xanh dương đậm
+  '#E69F00', // Vàng cam
+  '#56B4E9', // Xanh da trời
+  '#009E73', // Xanh lá cây (ngả lam)
+  '#CC79A7', // Hồng tím
+  '#D55E00', // Cam đỏ (Vermilion)
+  '#F0E442', // Vàng chanh
+  '#882255', // Đỏ rượu vang (Maroon)
+  '#44AA99', // Xanh bạc hà (Teal)
+  '#888888', // Xám trung tính
 ];
 
 const priorityColorMap = {
-  'Critical': '#FF4D4F',
-  'High': '#FA8C16',
-  'Moderate': '#FADB14',
-  'Low': '#52C41A',
+  'Critical': '#D55E00',
+  'High': '#C19A00',
+  'Moderate': '#332288',
+  'Low': '#56B4E9',
 };
 const getPiePriorityColor = ({ type }) => priorityColorMap[type] || '#E8E8E8';
 const getBarPriorityColor = ({ priority }) => priorityColorMap[priority] || '#E8E8E8';
+
+const sortedServicePriorityData = computed(() => {
+  const priorityOrder = ['Critical', 'High', 'Moderate', 'Low'];
+
+  if (!state.charts.servicePriority.data) {
+    return [];
+  }
+  
+  return [...state.charts.servicePriority.data].sort((a, b) => {
+    const indexA = priorityOrder.indexOf(a.priority);
+    const indexB = priorityOrder.indexOf(b.priority);
+    return indexA - indexB;
+  });
+});
 
 watch(filters, (newFilters) => {
   updateDashboardData(newFilters);
@@ -151,7 +169,6 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* Đảm bảo component chart bên trong cũng co giãn */
 .limited-height-card :deep(.ant-card-body > div) {
     flex: 1;
     min-height: 0;

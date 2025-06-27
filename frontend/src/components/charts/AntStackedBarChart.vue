@@ -33,6 +33,13 @@ const renderChart = () => {
         label: {
           position: 'middle',
           layout: [{ type: 'interval-adjust-position' }],
+          style: {
+            fill: '#fff',
+            fontSize: 10,
+            fontStyle: 400,
+            textShadow: '1px 1px 2px black',
+          },
+          
         },
         legend: {
           position: 'right-top',

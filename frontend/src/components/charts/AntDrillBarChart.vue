@@ -21,15 +21,16 @@ import { Column, Pie } from '@antv/g2plot';
 import { fetchShiftPriorityDetails } from '@/services/api.js';
 
 const priorityColorMap = {
-    'Critical': '#FF4D4F',
-    'High': '#FA8C16',
-    'Moderate': '#FADB14',
-    'Low': '#52C41A',
+    'Critical': '#D55E00',
+    'High': '#C19A00',
+    'Moderate': '#332288',
+    'Low': '#56B4E9',
 };
 
 const props = defineProps({
     data: { type: Array, required: true },
     filters: { type: Object, required: true },
+    color: { type: Array }, 
 });
 
 const tooltip = reactive({
@@ -115,6 +116,7 @@ const renderChart = () => {
         yField: 'total_sales',
         seriesField: 'type',
         legend: { position: 'top-left' },
+        color: props.color,
         columnWidthRatio: 0.5,
         columnStyle: {
             radius: [4, 4, 0, 0],
