@@ -1,5 +1,5 @@
 <template>
-  <div ref="container" :style="{ height: '350px' }"></div>
+  <div ref="container"  style="max-height: 200px;"></div>
 </template>
 
 <script setup>
