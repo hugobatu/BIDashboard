@@ -1,6 +1,6 @@
 <template>
-    <div ref="mainContainer" style="position: relative; width: 100%; height: 400px;">
-        <div ref="chartContainer" style="width: 100%; height: 100%;"></div>
+    <div ref="mainContainer" style="position: relative; width: 100%; height: 100%;">
+        <div ref="chartContainer" style="width: 100%; height: 100%; max-height: 200px;"></div>
 
         <div 
             v-if="tooltip.visible" 
@@ -17,7 +17,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref, watch, reactive, nextTick } from 'vue';
-import { Bar, Pie } from '@antv/g2plot';
+import { Column, Pie } from '@antv/g2plot';
 import { fetchShiftPriorityDetails } from '@/services/api.js';
 
 const priorityColorMap = {
@@ -42,7 +42,7 @@ const pieContainerId = 'pie-tooltip-container';
 
 const mainContainer = ref(null);
 const chartContainer = ref(null);
-let barPlot = null;
+let columnPlot = null;
 let piePlot = null;
 const breakdownCache = ref({});
 
@@ -50,20 +50,24 @@ const showTooltip = (event) => {
     const { data } = event.data;
     if (!data) return;
 
-    const bbox = event.gEvent.target.getBBox();
+    const { x, y } = event;
+    const tooltipWidth = 260;
+    const offset = 15;
+    
+    let leftPosition = x - tooltipWidth - offset;
 
-    const top = bbox.y + bbox.height / 2 - 100;
-    const left = bbox.x - 260;
+    if (leftPosition < 0) {
+        leftPosition = x + offset;
+    }
 
     tooltip.visible = true;
     tooltip.title = data.type;
     tooltip.total = data.total_sales;
     tooltip.style = {
         position: 'absolute',
-        top: `${top}px`,
-        left: `${left < 0 ? 10 : left}px`,
+        top: `${y - 130}px`,
+        left: `${leftPosition}px`,
         pointerEvents: 'none',
-        transform: 'translateX(-90%)',
     };
 
     nextTick(() => {
@@ -82,87 +86,46 @@ const hideTooltip = () => {
 const loadAndRenderPie = async (shiftName) => {
     const pieContainer = document.getElementById(pieContainerId);
     if (!pieContainer) return;
-
     let pieData = breakdownCache.value[shiftName];
     if (!pieData) {
         try {
             const details = await fetchShiftPriorityDetails(props.filters, shiftName);
             pieData = details.map(item => ({ name: item.priority, value: item.count }));
             breakdownCache.value[shiftName] = pieData;
-        } catch (error) {
-            console.error(`Lỗi khi lấy chi tiết cho ca ${shiftName}:`, error);
-            pieContainer.innerText = 'Lỗi tải dữ liệu.';
-            return;
-        }
+        } catch (error) { console.error(`Lỗi khi lấy chi tiết cho ca ${shiftName}:`, error); pieContainer.innerText = 'Lỗi tải dữ liệu.'; return; }
     }
-
-    if (!pieData || pieData.length === 0) {
-        pieContainer.innerText = 'Không có dữ liệu chi tiết.';
-        return;
-    }
-
+    if (!pieData || pieData.length === 0) { pieContainer.innerText = 'Không có dữ liệu chi tiết.'; return; }
     pieContainer.innerText = '';
     piePlot = new Pie(pieContainer, {
-        data: pieData,
-        appendPadding: 0,
-        angleField: 'value',
-        colorField: 'name',
-        color: ({ name }) => priorityColorMap[name] || '#E8E8E8',
-        
-        radius: 0.8,
-        
-        legend: {
-        position: 'right',
-        layout: 'vertical',
-        itemSpacing: 8,
-        itemName: {
-            style: {
-                fontSize: 12,
-                fill: '#434343'
-            }
-        },
-        itemValue: {
-            formatter: () => {
-                return '';
-            },
-            style: {
-                fill: '#8c8c8c'
-            }
-        }
-        },
-        
-        label: { 
-            type: 'inner', 
-            offset: '-30%', 
-            content: ({ percent }) => `${(percent * 100).toFixed(0)}%`, 
-            style: { fontSize: 12, textAlign: 'center', fill: '#fff' } 
-        },
-        tooltip: { 
-            formatter: (datum) => ({ name: datum.name, value: datum.value }) 
-        },
-        animation: false,
+        data: pieData, appendPadding: 0, angleField: 'value', colorField: 'name', color: ({ name }) => priorityColorMap[name] || '#E8E8E8', radius: 0.8,
+        legend: { position: 'right', layout: 'vertical', itemSpacing: 8, itemName: { style: { fontSize: 12 } }, itemValue: { formatter: () => '' } },
+        label: { type: 'inner', offset: '-30%', content: ({ percent }) => `${(percent * 100).toFixed(0)}%`, style: { fontSize: 12, textAlign: 'center', fill: '#fff' } },
+        tooltip: { formatter: (datum) => ({ name: datum.name, value: datum.value }) }, animation: false,
     });
     piePlot.render();
 };
 
 const renderChart = () => {
-    if (barPlot) barPlot.destroy();
+    if (columnPlot) columnPlot.destroy();
     if (!chartContainer.value || !props.data || props.data.length === 0) return;
 
-    barPlot = new Bar(chartContainer.value, {
+    columnPlot = new Column(chartContainer.value, {
         data: props.data,
-        xField: 'total_sales',
-        yField: 'type',
+        xField: 'type',
+        yField: 'total_sales',
         seriesField: 'type',
         legend: { position: 'top-left' },
-        barStyle: { radius: [4, 4, 0, 0] },
+        columnWidthRatio: 0.5,
+        columnStyle: {
+            radius: [4, 4, 0, 0],
+        },
         tooltip: false,
     });
 
-    barPlot.on('element:mouseenter', showTooltip);
-    barPlot.on('element:mouseleave', hideTooltip);
+    columnPlot.on('element:mouseenter', showTooltip);
+    columnPlot.on('element:mouseleave', hideTooltip);
 
-    barPlot.render();
+    columnPlot.render();
 };
 
 onMounted(renderChart);
@@ -174,10 +137,10 @@ watch(() => props.data, () => {
 }, { deep: true });
 
 onUnmounted(() => {
-    if (barPlot) {
-        barPlot.off('element:mouseenter', showTooltip);
-        barPlot.off('element:mouseleave', hideTooltip);
-        barPlot.destroy();
+    if (columnPlot) {
+        columnPlot.off('element:mouseenter', showTooltip);
+        columnPlot.off('element:mouseleave', hideTooltip);
+        columnPlot.destroy();
     }
     hideTooltip();
 });
@@ -190,10 +153,8 @@ onUnmounted(() => {
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     padding: 10px;
-    transition: opacity 0.2s, transform 0.2s;
+    transition: opacity 0.2s;
     opacity: 1;
-    transform: scale(1);
-    transform-origin: center right;
 }
 
 .custom-tooltip h4 {

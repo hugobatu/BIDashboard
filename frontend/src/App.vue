@@ -1,8 +1,8 @@
 <template>
-  <a-layout style="min-height: 100vh;">
+  <a-layout style="height: 100vh; overflow: hidden;">
     <a-layout-header 
       :style="{ 
-        position: 'fixed', 
+        position: 'relative',
         zIndex: 10, 
         width: '100%', 
         background: '#fff', 
@@ -23,7 +23,7 @@
             <a-radio-button value="month">Tháng</a-radio-button>
             <a-radio-button value="year">Năm</a-radio-button>
           </a-radio-group>
-          <a-date-picker v-model:value="filters.date" :picker="filters.mode" :allow-clear="false" />
+          <a-date-picker v-model:value="filters.date" :picker="mode" :allow-clear="false" />
         </a-space>
       </div>
     </a-layout-header>
@@ -31,37 +31,57 @@
     <a-layout-content 
       :style="{ 
         padding: '24px', 
-        marginTop: '64px',
-        background: '#f0f2f5' 
+        background: '#f0f2f5',
+        overflow: 'hidden'
       }"
     >
-      <div style="max-width: 1600px; margin: 0 auto;">
-        <a-spin :spinning="state.loading" size="large" tip="Đang tải dữ liệu...">
-          <a-row :gutter="[24, 24]">
+      <div style="max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; height: 100%;">
+        <a-spin :spinning="state.loading" size="large" tip="Đang tải dữ liệu..." style="display: flex; flex-direction: column; height: 100%;">
+          
+          <!-- Hàng 1: KPI Cards -->
+          <a-row :gutter="[24, 24]" style="flex: 0 0 auto;">
             <a-col :xs="24" :sm="24" :md="8"><KpiCard title="Tổng số Incident" :value="state.kpi.total" theme="info" /></a-col>
             <a-col :xs="24" :sm="12" :md="8"><KpiCard title="Số Incident Nghiêm trọng" :value="state.kpi.highPriority" theme="danger" /></a-col>
             <a-col :xs="24" :sm="12" :md="8"><KpiCard :title="state.kpi.latestTitle" :value="state.kpi.latestValue" theme="warning" /></a-col>
           </a-row>
           
-          <a-row :gutter="[24, 24]" style="margin-top: 24px;">
-            <a-col :xs="24" :lg="12"><a-card title="Số lượng Incident theo Mức độ Ưu tiên trong các Service" :bordered="false"><AntStackedBarChart :data="state.charts.servicePriority.data" x-field="service" y-field="count" series-field="priority" :color="getBarPriorityColor" /></a-card></a-col>
-            <a-col :xs="24" :lg="12"><a-card title="Tỷ trọng Incident theo Mức độ Ưu tiên" :bordered="false"><AntPieChart :data="state.charts.priorityDistribution.data" angle-field="value" color-field="type" :color="getPiePriorityColor" /></a-card></a-col>
-          </a-row>
-          
-          <a-row :gutter="[24, 24]" style="margin-top: 24px;">
-            <a-col :span="24"><a-card title="Xu hướng Incident theo Nhóm DAEO và NON-DAEO" :bordered="false"><AntMultiLineChart :data="state.charts.trendByDaeo.data" x-field="time" y-field="count" series-field="group" /></a-card></a-col>
-          </a-row>
-
-          <a-row :gutter="[24, 24]" style="margin-top: 24px;">
-            <a-col :xs="24" :lg="12"><a-card title="Phân bổ Incident theo Phòng ban" :bordered="false"><AntTreemapChart :data="state.charts.treemap.data" color-field="name" value-field="value" :color="groupColors" :total-value="state.kpi.total" /></a-card></a-col>
+          <!-- Wrapper cho các biểu đồ -->
+          <div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: 24px; min-height: 0;">
             
-            <a-col :xs="24" :lg="12">
-              <a-card title="Tổng số Incident theo Ca" :bordered="false">
-                <AntDrillBarChart :data="state.charts.shiftPriority.data" :filters="filters" />
-              </a-card>
-            </a-col>
+            <!-- Hàng 2: Chứa 2 biểu đồ quan trọng -->
+            <a-row :gutter="[24, 24]">
+              <a-col :xs="24" :lg="12">
+                <a-card title="Số lượng Incident theo Mức độ Ưu tiên trong các Service" :bordered="false" class="limited-height-card">
+                  <AntStackedBarChart :data="state.charts.servicePriority.data" x-field="service" y-field="count" series-field="priority" :color="getBarPriorityColor" />
+                </a-card>
+              </a-col>
+              <a-col :xs="24" :lg="12">
+                <a-card title="Xu hướng Incident theo Nhóm DAEO và NON-DAEO" :bordered="false" class="limited-height-card">
+                  <AntMultiLineChart :data="state.charts.trendByDaeo.data" x-field="time" y-field="count" series-field="group" />
+                </a-card>
+              </a-col>
+            </a-row>
 
-          </a-row>
+            <!-- Hàng 3: Chứa 3 biểu đồ còn lại -->
+            <a-row :gutter="[24, 24]" style="margin-top: 24px;">
+              <a-col :xs="24" :lg="8">
+                <a-card title="Tỷ trọng Incident theo Mức độ Ưu tiên" :bordered="false" class="limited-height-card">
+                  <AntPieChart :data="state.charts.priorityDistribution.data" angle-field="value" color-field="type" :color="getPiePriorityColor" />
+                </a-card>
+              </a-col>
+              <a-col :xs="24" :lg="8">
+                <a-card title="Phân bổ Incident theo Phòng ban" :bordered="false" class="limited-height-card">
+                  <AntTreemapChart :data="state.charts.treemap.data" color-field="name" value-field="value" :color="groupColors" :total-value="state.kpi.total" />
+                </a-card>
+              </a-col>
+              <a-col :xs="24" :lg="8">
+                <a-card title="Tổng số Incident theo Ca" :bordered="false" class="limited-height-card">
+                  <AntDrillBarChart :data="state.charts.shiftPriority.data" :filters="filters" />
+                </a-card>
+              </a-col>
+            </a-row>
+            
+          </div>
         </a-spin>
       </div>
     </a-layout-content>
@@ -96,7 +116,7 @@ const assignmentGroupOptions = computed(() => {
 
 const groupColors = [
   '#5B8FF9', '#61DDAA', '#65789B', '#F6BD16', '#7262FD', 
-  '#78D3F8', '#9661BC', '#F6903D', '#008685', '#F08BB4'
+  '#78D3F8', '#9661BC', '#F6903D', '#008BB4'
 ];
 
 const priorityColorMap = {
@@ -116,3 +136,24 @@ onMounted(() => {
   updateDashboardData(filters); 
 });
 </script>
+
+<style scoped>
+.limited-height-card {
+  max-height: 300px; 
+  
+  display: flex;
+  flex-direction: column;
+}
+
+.limited-height-card :deep(.ant-card-body) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Đảm bảo component chart bên trong cũng co giãn */
+.limited-height-card :deep(.ant-card-body > div) {
+    flex: 1;
+    min-height: 0;
+}
+</style>
