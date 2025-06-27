@@ -11,6 +11,7 @@ const props = defineProps({
   xField: String,
   yField: String,
   seriesField: String,
+  color: Array,
 });
 
 const container = ref(null);
@@ -28,6 +29,7 @@ const renderChart = () => {
         xField: props.xField,
         yField: props.yField,
         seriesField: props.seriesField,
+        color: props.color,
         smooth: false,
         legend: { 
             position: 'top-right' 
