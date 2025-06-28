@@ -23,7 +23,7 @@
             <a-radio-button value="month">Tháng</a-radio-button>
             <a-radio-button value="year">Năm</a-radio-button>
           </a-radio-group>
-          <a-date-picker v-model:value="filters.date" :picker="mode" :allow-clear="false" />
+          <a-date-picker v-model:value="filters.date" :picker="filters.mode" :allow-clear="false" />
         </a-space>
       </div>
     </a-layout-header>
